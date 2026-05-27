@@ -19,6 +19,7 @@ class CrashEvent {
 
   Map<String, dynamic> toJson() {
     return {
+      'type': 'crash',
       'session_id': sessionId,
       'exception_type': exceptionType,
       'raw_stack_trace': rawStackTrace,
