@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] — 2026-05-29
+
+### Fixed
+
+- Changed SDK session event names from `start` / `end` to `session_start` / `session_end` to match the backend ingestion contract.
+
 ## [0.1.0] — 2026-05-28
 
 Initial release.
@@ -34,5 +40,6 @@ Initial release.
 - `FlutterError.onError` requires one-line manual wiring in user's `main()` (documented in README)
 - Native crash capture (iOS Swift / Android Kotlin / C++ via FFI) is intentionally not in v0.1; planned for v2
 
-[Unreleased]: https://github.com/gdworks/flutterveil/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/gdworks/flutterveil/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/gdworks/flutterveil/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/gdworks/flutterveil/releases/tag/v0.1.0
