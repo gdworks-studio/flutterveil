@@ -36,6 +36,13 @@ void main() {
         ),
       ),
     );
+
+    final events = await queue.drain();
+    final startEvent = SessionEvent.fromJson(events.single);
+
+    expect(startEvent.sessionId, sessionId);
+    expect(startEvent.type, 'session_start');
+    expect(startEvent.crashed, isFalse);
   });
 
   test('calling start twice returns the same session ID', () async {
@@ -56,7 +63,7 @@ void main() {
     final endEvent = SessionEvent.fromJson(events.last);
 
     expect(endEvent.sessionId, sessionId);
-    expect(endEvent.type, 'end');
+    expect(endEvent.type, 'session_end');
     expect(endEvent.crashed, isTrue);
   });
 }

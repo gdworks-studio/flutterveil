@@ -75,6 +75,6 @@ void main() {
         .map(SessionEvent.fromJson)
         .toList();
 
-    expect(sessionEvents.map((event) => event.type), contains('end'));
+    expect(sessionEvents.map((event) => event.type), contains('session_end'));
   });
 }

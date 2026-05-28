@@ -27,7 +27,7 @@ class SessionTracker {
     await _queue.enqueue(
       SessionEvent(
         sessionId: _sessionId!,
-        type: 'start',
+        type: 'session_start',
         crashed: false,
         timestamp: DateTime.now().toUtc(),
       ).toJson(),
@@ -49,7 +49,7 @@ class SessionTracker {
     await _queue.enqueue(
       SessionEvent(
         sessionId: sessionId,
-        type: 'end',
+        type: 'session_end',
         crashed: _crashed,
         timestamp: DateTime.now().toUtc(),
       ).toJson(),
