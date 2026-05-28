@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-05-29 — Week 5: symbol-upload CLI
+
+### Added
+
+- `bin/upload_symbols.dart` — `dart run flutterveil:upload_symbols` CLI for uploading dSYM (iOS) / ProGuard mapping (Android) to the symbolication endpoint.
+- Reads the upload key from `FLUTTERVEIL_UPLOAD_KEY` env var or stdin — **never from `--api-key` argv** (avoids leaking the secret into process list / shell history).
+- Zips a `.dSYM` directory for upload (skips symlinks, cleans up the temp archive); enforces HTTPS endpoints except localhost.
+- Uses the project's separate `symbol_upload_key`, not the ingestion API key.
+
 ## [0.1.1] — 2026-05-29
 
 ### Fixed
