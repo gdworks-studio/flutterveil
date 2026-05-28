@@ -14,6 +14,8 @@ Future<void> main(List<String> args) async {
 Future<int> runUploadSymbols(
   List<String> args, {
   http.Client? client,
+  Map<String, String>? environment,
+  Future<String?> Function()? readStdinLine,
 }) async {
   if (args.contains('--help') || args.contains('-h')) {
     stdout.writeln(_usage);
@@ -22,7 +24,11 @@ Future<int> runUploadSymbols(
 
   late final _UploadConfig config;
   try {
-    config = await _parseConfig(args);
+    config = await _parseConfig(
+      args,
+      environment: environment ?? Platform.environment,
+      readStdinLine: readStdinLine ?? () async => stdin.readLineSync(),
+    );
   } on FormatException catch (error) {
     stderr.writeln('[flutterveil] ${error.message}');
     stderr.writeln(_usage);
@@ -36,9 +42,12 @@ Future<int> runUploadSymbols(
       'POST',
       Uri.parse('${config.endpoint}/v1/symbol-files'),
     )
-      ..headers[HttpHeaders.authorizationHeader] = 'Bearer ${config.apiKey}'
+      ..headers[HttpHeaders.authorizationHeader] = 'Bearer ${config.uploadKey}'
       ..fields['app_version'] = config.appVersion
       ..fields['platform'] = config.platform
+      ..fields.addAll(config.buildNumber.isEmpty
+          ? const <String, String>{}
+          : {'build_number': config.buildNumber})
       ..files.add(
         await http.MultipartFile.fromPath(
           'file',
@@ -84,6 +93,9 @@ String normalizeEndpoint(String endpoint) {
     throw const FormatException(
         'Endpoint must not include a query or fragment.');
   }
+  if (uri.userInfo.isNotEmpty) {
+    throw const FormatException('Endpoint must not include userinfo.');
+  }
 
   final host = uri.host.toLowerCase();
   final isLocalhost =
@@ -103,19 +115,20 @@ String normalizeEndpoint(String endpoint) {
       .replaceFirst(RegExp(r'/$'), '');
 }
 
-Future<_UploadConfig> _parseConfig(List<String> args) async {
+Future<_UploadConfig> _parseConfig(
+  List<String> args, {
+  required Map<String, String> environment,
+  required Future<String?> Function() readStdinLine,
+}) async {
   final flags = _parseFlags(args);
   final path = flags['path'];
-  final apiKey = flags['api-key'];
   final appVersion = flags['app-version'];
+  final buildNumber = flags['build-number'];
   final platform = flags['platform'];
   final endpoint = flags['endpoint'];
 
   if (path == null || path.trim().isEmpty) {
     throw const FormatException('Missing required --path.');
-  }
-  if (apiKey == null || apiKey.trim().isEmpty) {
-    throw const FormatException('Missing required --api-key.');
   }
   if (appVersion == null || appVersion.trim().isEmpty) {
     throw const FormatException('Missing required --app-version.');
@@ -127,18 +140,29 @@ Future<_UploadConfig> _parseConfig(List<String> args) async {
     throw const FormatException('Missing required --endpoint.');
   }
 
+  final normalizedEndpoint = normalizeEndpoint(endpoint);
+  final uploadKey = await _resolveUploadKey(flags, environment, readStdinLine);
   final selected = await _selectSymbolFile(path, platform);
   return _UploadConfig(
     file: selected.file,
     temporaryDirectory: selected.temporaryDirectory,
-    apiKey: apiKey.trim(),
+    uploadKey: uploadKey,
     appVersion: appVersion.trim(),
+    buildNumber: buildNumber?.trim() ?? '',
     platform: platform,
-    endpoint: normalizeEndpoint(endpoint),
+    endpoint: normalizedEndpoint,
   );
 }
 
 Map<String, String> _parseFlags(List<String> args) {
+  const valueFlags = {
+    'path',
+    'app-version',
+    'build-number',
+    'platform',
+    'endpoint',
+  };
+  const switchFlags = {'upload-key-stdin'};
   final flags = <String, String>{};
   var index = 0;
   while (index < args.length) {
@@ -150,6 +174,22 @@ Map<String, String> _parseFlags(List<String> args) {
     if (name.isEmpty) {
       throw const FormatException('Invalid empty flag.');
     }
+    if (name == 'api-key') {
+      throw const FormatException(
+        '--api-key has been removed. Use FLUTTERVEIL_UPLOAD_KEY or --upload-key-stdin.',
+      );
+    }
+    if (flags.containsKey(name)) {
+      throw FormatException('Duplicate flag --$name.');
+    }
+    if (switchFlags.contains(name)) {
+      flags[name] = 'true';
+      index += 1;
+      continue;
+    }
+    if (!valueFlags.contains(name)) {
+      throw FormatException('Unknown flag --$name.');
+    }
     if (index + 1 >= args.length || args[index + 1].startsWith('--')) {
       throw FormatException('Missing value for --$name.');
     }
@@ -159,17 +199,47 @@ Map<String, String> _parseFlags(List<String> args) {
   return flags;
 }
 
+Future<String> _resolveUploadKey(
+  Map<String, String> flags,
+  Map<String, String> environment,
+  Future<String?> Function() readStdinLine,
+) async {
+  final envKey = environment['FLUTTERVEIL_UPLOAD_KEY']?.trim();
+  if (flags.containsKey('upload-key-stdin')) {
+    if (envKey != null && envKey.isNotEmpty) {
+      throw const FormatException(
+        'Use either FLUTTERVEIL_UPLOAD_KEY or --upload-key-stdin, not both.',
+      );
+    }
+    final stdinKey = (await readStdinLine())?.trim();
+    if (stdinKey == null || stdinKey.isEmpty) {
+      throw const FormatException('Missing upload key on stdin.');
+    }
+    return stdinKey;
+  }
+  if (envKey != null && envKey.isNotEmpty) {
+    return envKey;
+  }
+  throw const FormatException(
+    'Missing upload key. Set FLUTTERVEIL_UPLOAD_KEY or pass --upload-key-stdin.',
+  );
+}
+
 Future<_SelectedFile> _selectSymbolFile(
     String inputPath, String platform) async {
   final type = await FileSystemEntity.type(inputPath, followLinks: false);
   if (type == FileSystemEntityType.notFound) {
     throw FormatException('Symbol path does not exist: $inputPath');
   }
+  if (type == FileSystemEntityType.link) {
+    throw FormatException('Symbol path must not be a symlink: $inputPath');
+  }
+  final normalizedInputPath = _stripTrailingSeparators(inputPath);
   if (type == FileSystemEntityType.file) {
-    return _SelectedFile(File(inputPath));
+    return _SelectedFile(File(normalizedInputPath));
   }
 
-  final directory = Directory(inputPath);
+  final directory = Directory(normalizedInputPath);
   if (platform == 'android') {
     final mapping = await _findFirstFile(directory, 'mapping.txt');
     if (mapping == null) {
@@ -179,7 +249,7 @@ Future<_SelectedFile> _selectSymbolFile(
     return _SelectedFile(mapping);
   }
 
-  if (inputPath.endsWith('.dSYM')) {
+  if (_basename(normalizedInputPath).endsWith('.dSYM')) {
     return _zipDsymDirectory(directory);
   }
 
@@ -213,18 +283,27 @@ Future<File?> _findFirstFile(
 }
 
 Future<_SelectedFile> _zipDsymDirectory(Directory directory) async {
+  await _rejectSymlinks(directory);
   final tempDir = await Directory.systemTemp.createTemp('flutterveil_dsym_');
-  final zipFile = File('${tempDir.path}/${_basename(directory.path)}.zip');
-  final parentPath = directory.parent.path;
-  final result = await Process.run(
-    'zip',
-    ['-qry', zipFile.path, _basename(directory.path)],
-    workingDirectory: parentPath,
-  );
-  if (result.exitCode != 0) {
-    throw const FormatException('Unable to zip .dSYM directory.');
+  var keepTempDir = false;
+  try {
+    final zipFile = File('${tempDir.path}/${_basename(directory.path)}.zip');
+    final parentPath = directory.parent.path;
+    final result = await Process.run(
+      'zip',
+      ['-qry', zipFile.path, _basename(directory.path)],
+      workingDirectory: parentPath,
+    );
+    if (result.exitCode != 0) {
+      throw const FormatException('Unable to zip .dSYM directory.');
+    }
+    keepTempDir = true;
+    return _SelectedFile(zipFile, temporaryDirectory: tempDir);
+  } finally {
+    if (!keepTempDir && await tempDir.exists()) {
+      await tempDir.delete(recursive: true);
+    }
   }
-  return _SelectedFile(zipFile, temporaryDirectory: tempDir);
 }
 
 String _basename(String path) {
@@ -232,25 +311,49 @@ String _basename(String path) {
   return normalized.substring(normalized.lastIndexOf('/') + 1);
 }
 
+String _stripTrailingSeparators(String path) {
+  var normalized = path;
+  while (normalized.length > 1 &&
+      (normalized.endsWith('/') || normalized.endsWith('\\'))) {
+    normalized = normalized.substring(0, normalized.length - 1);
+  }
+  return normalized;
+}
+
+Future<void> _rejectSymlinks(Directory directory) async {
+  await for (final entity
+      in directory.list(recursive: true, followLinks: false)) {
+    if (entity is Link) {
+      throw FormatException(
+        '.dSYM directory must not contain symlinks: ${entity.path}',
+      );
+    }
+  }
+}
+
 const String _usage = '''
 Usage:
-  dart run flutterveil:upload_symbols --path <path> --api-key <key> --app-version <version> --platform <ios|android> --endpoint <url>
+  dart run flutterveil:upload_symbols --path <path> --app-version <version> [--build-number <build>] --platform <ios|android> --endpoint <url>
+
+Set FLUTTERVEIL_UPLOAD_KEY or pass --upload-key-stdin.
 ''';
 
 class _UploadConfig {
   const _UploadConfig({
     required this.file,
     required this.temporaryDirectory,
-    required this.apiKey,
+    required this.uploadKey,
     required this.appVersion,
+    required this.buildNumber,
     required this.platform,
     required this.endpoint,
   });
 
   final File file;
   final Directory? temporaryDirectory;
-  final String apiKey;
+  final String uploadKey;
   final String appVersion;
+  final String buildNumber;
   final String platform;
   final String endpoint;
 }
