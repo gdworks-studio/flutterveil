@@ -17,6 +17,21 @@ class NoopUploader extends Uploader {
   }) async {}
 }
 
+class RecordingUploader extends Uploader {
+  RecordingUploader({required EventQueue queue})
+      : super(queue: queue, retryDelay: Duration.zero);
+
+  int uploadCount = 0;
+
+  @override
+  Future<void> upload({
+    required String endpoint,
+    required String apiKey,
+  }) async {
+    uploadCount += 1;
+  }
+}
+
 void main() {
   late Directory tempDir;
   late EventQueue queue;
@@ -62,6 +77,32 @@ void main() {
     expect(crash.exceptionType, 'StateError');
     expect(crash.rawStackTrace, isNotEmpty);
     expect(crash.deviceInfo['os'], isNotEmpty);
+  });
+
+  test('init disables uploads for a non-HTTPS, non-localhost endpoint', () async {
+    final recording = RecordingUploader(queue: queue);
+    FlutterVeil.configureForTesting(queue: queue, uploader: recording);
+
+    await FlutterVeil.init(
+      apiKey: 'test-key',
+      endpoint: 'http://insecure.example.com',
+    );
+    await FlutterVeil.upload();
+
+    expect(recording.uploadCount, 0);
+  });
+
+  test('init allows uploads for an HTTPS endpoint', () async {
+    final recording = RecordingUploader(queue: queue);
+    FlutterVeil.configureForTesting(queue: queue, uploader: recording);
+
+    await FlutterVeil.init(
+      apiKey: 'test-key',
+      endpoint: 'https://secure.example.com',
+    );
+    await FlutterVeil.upload();
+
+    expect(recording.uploadCount, greaterThan(0));
   });
 
   test('dispose ends the session', () async {
