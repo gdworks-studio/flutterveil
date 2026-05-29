@@ -45,7 +45,7 @@ Initial release.
 
 ### Notes
 
-- SDK intentionally has no `package:flutter` dependency — keeps it in the Dart package category on pub.dev and avoids forcing a Flutter SDK version on consumers
+- SDK is a Flutter package (depends on `flutter` + `path_provider`); the `if (dart.library.ui)` conditional-import + stub design keeps the library compilable and unit-testable in pure-Dart contexts without a Flutter binding
 - `FlutterError.onError` requires one-line manual wiring in user's `main()` (documented in README)
 - Native crash capture (iOS Swift / Android Kotlin / C++ via FFI) is intentionally not in v0.1; planned for v2
 
