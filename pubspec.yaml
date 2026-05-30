@@ -1,7 +1,7 @@
 name: flutterveil
 description: Firebase-free Flutter crash monitoring SDK with offline queueing.
 version: 0.2.1
-repository: https://github.com/gdworks/flutterveil
+repository: https://github.com/gdworks-studio/flutterveil
 
 environment:
   sdk: ">=3.0.0 <4.0.0"
