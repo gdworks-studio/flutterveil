@@ -36,6 +36,21 @@ void main() {
     expect(await queue.drain(), isEmpty);
   });
 
+  test('queue is capped at maxQueuedEvents, dropping the oldest', () async {
+    final many = List.generate(
+      EventQueue.maxQueuedEvents + 50,
+      (i) => {'n': i},
+    );
+
+    await queue.enqueueAll(many);
+
+    final events = await queue.drain();
+    expect(events.length, EventQueue.maxQueuedEvents);
+    // Oldest 50 dropped: remaining run from n=50 to the newest.
+    expect(events.first['n'], 50);
+    expect(events.last['n'], EventQueue.maxQueuedEvents + 49);
+  });
+
   test('atomic write leaves a valid queue file and no tmp file', () async {
     final event = {'type': 'start', 'session_id': 'atomic'};
     final queueFile = File('${tempDir.path}/flutterveil_queue.json');

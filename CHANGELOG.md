@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] — 2026-05-30 — Security hardening
+
+### Security
+
+- **HTTPS enforced for uploads.** `FlutterVeil.init` now refuses to upload crash
+  data to a non-HTTPS endpoint (localhost exempt for local dev) — previously a
+  misconfigured `http://` endpoint would send the API key and crash payload in
+  cleartext. Uploads are disabled with a clear stderr warning instead. Mirrors
+  the existing HTTPS enforcement in the `upload_symbols` CLI.
+- **Offline queue is bounded.** The on-disk event queue is now capped at
+  `EventQueue.maxQueuedEvents` (1000), dropping the oldest events first. Prevents
+  unbounded disk growth during long offline periods and keeps a full drain within
+  the backend's per-batch limit.
+
 ## [0.2.0] — 2026-05-29 — Week 5: symbol-upload CLI
 
 ### Added

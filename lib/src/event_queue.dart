@@ -16,6 +16,11 @@ class EventQueue {
 
   static const String queueFileName = 'flutterveil_queue.json';
 
+  /// Hard cap on queued events. Prevents the on-disk queue from growing without
+  /// bound while a device is offline or the endpoint is down, and keeps a full
+  /// drain within the backend's per-batch limit. Oldest events are dropped first.
+  static const int maxQueuedEvents = 1000;
+
   final DirectoryProvider _directoryProvider;
   Completer<void>? _lock;
 
@@ -99,10 +104,15 @@ class EventQueue {
   }
 
   Future<void> _writeEvents(List<Map<String, dynamic>> events) async {
+    // Drop oldest events beyond the cap so the queue stays bounded.
+    final capped = events.length > maxQueuedEvents
+        ? events.sublist(events.length - maxQueuedEvents)
+        : events;
+
     final file = await _queueFile();
     final tmpFile = File('${file.path}.tmp');
 
-    await tmpFile.writeAsString(jsonEncode(events), flush: true);
+    await tmpFile.writeAsString(jsonEncode(capped), flush: true);
     await tmpFile.rename(file.path);
   }
 }

@@ -15,6 +15,7 @@ class FlutterVeil {
   static String _appVersion = 'unknown';
   static String _buildNumber = 'unknown';
   static bool _hooksRegistered = false;
+  static bool _endpointAllowed = true;
 
   static EventQueue _queue = EventQueue();
   static SessionTracker _sessionTracker = SessionTracker(queue: _queue);
@@ -30,6 +31,15 @@ class FlutterVeil {
     _endpoint = endpoint;
     _appVersion = appVersion;
     _buildNumber = buildNumber;
+
+    _endpointAllowed = _isUploadEndpointAllowed(endpoint);
+    if (!_endpointAllowed) {
+      stderr.writeln(
+        '[flutterveil] Endpoint "$endpoint" is not HTTPS; refusing to upload '
+        'crash data over cleartext. Uploads are disabled — use an https:// '
+        'endpoint (localhost is exempt for local development).',
+      );
+    }
 
     await _sessionTracker.start();
     unawaited(upload());
@@ -67,8 +77,26 @@ class FlutterVeil {
     if (apiKey == null) {
       return;
     }
+    if (!_endpointAllowed) {
+      return;
+    }
 
     await _uploader.upload(endpoint: _endpoint, apiKey: apiKey);
+  }
+
+  /// Allow uploads only to HTTPS endpoints; localhost is exempt so local
+  /// development against a plain-HTTP dev server keeps working. Mirrors the
+  /// HTTPS enforcement in the upload_symbols CLI.
+  static bool _isUploadEndpointAllowed(String endpoint) {
+    final uri = Uri.tryParse(endpoint);
+    if (uri == null) {
+      return false;
+    }
+    if (uri.isScheme('https')) {
+      return true;
+    }
+    const localHosts = {'localhost', '127.0.0.1', '::1'};
+    return localHosts.contains(uri.host);
   }
 
   static Future<void> dispose() async {
@@ -95,6 +123,7 @@ class FlutterVeil {
     _appVersion = 'unknown';
     _buildNumber = 'unknown';
     _hooksRegistered = false;
+    _endpointAllowed = true;
     _queue = EventQueue();
     _sessionTracker = SessionTracker(queue: _queue);
     _uploader = Uploader(queue: _queue);
