@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] — 2026-05-31 — Documentation
+
+### Docs
+
+- Added dartdoc comments across the public API (`FlutterVeil` and its methods,
+  `CrashEvent`, `SessionEvent`, and a library-level overview). No behavior
+  changes — documentation only. Brings the package to full pub.dev API-doc
+  coverage.
+
 ## [0.2.1] — 2026-05-30 — Security hardening
 
 ### Security

@@ -7,6 +7,19 @@ import 'models.dart';
 import 'session_tracker.dart';
 import 'uploader.dart';
 
+/// The flutterveil crash-monitoring client.
+///
+/// Call [init] once early in `main()`; after that, uncaught Flutter errors are
+/// captured and uploaded automatically. Use [capture] to report a caught error
+/// manually, and [dispose] on a clean shutdown to flush the final session.
+///
+/// ```dart
+/// await FlutterVeil.init(
+///   apiKey: 'fv_live_...',
+///   endpoint: 'https://your-ingest.example.com',
+///   appVersion: '1.0.0',
+/// );
+/// ```
 class FlutterVeil {
   FlutterVeil._();
 
@@ -21,6 +34,13 @@ class FlutterVeil {
   static SessionTracker _sessionTracker = SessionTracker(queue: _queue);
   static Uploader _uploader = Uploader(queue: _queue);
 
+  /// Initializes the SDK, starts a session, and registers the global error
+  /// hooks so uncaught errors are captured automatically.
+  ///
+  /// [apiKey] is your project ingestion key. [endpoint] is the ingestion base
+  /// URL and must be `https://` (except `localhost`, exempt for local
+  /// development); cleartext endpoints disable uploads. [appVersion] and
+  /// [buildNumber] are attached to every report. Safe to await once at startup.
   static Future<void> init({
     required String apiKey,
     String endpoint = 'http://localhost:8080',
@@ -50,6 +70,10 @@ class FlutterVeil {
     }
   }
 
+  /// Captures a caught [error] with its [stack] and queues it for upload.
+  ///
+  /// Use this for errors you handle yourself (e.g. inside a `try`/`catch`);
+  /// uncaught errors are captured automatically after [init].
   static Future<void> capture(Object error, StackTrace stack) async {
     final sessionId =
         _sessionTracker.sessionId ?? await _sessionTracker.start();
@@ -72,6 +96,10 @@ class FlutterVeil {
     unawaited(upload());
   }
 
+  /// Drains the on-device queue and uploads any pending events.
+  ///
+  /// Called automatically after [init] and [capture]; a no-op until [init] has
+  /// supplied an API key, or while the endpoint is cleartext.
   static Future<void> upload() async {
     final apiKey = _apiKey;
     if (apiKey == null) {
@@ -99,11 +127,17 @@ class FlutterVeil {
     return localHosts.contains(uri.host);
   }
 
+  /// Ends the current session and flushes pending events.
+  ///
+  /// Call on a clean shutdown so the final `session_end` (and any queued
+  /// crashes) are recorded.
   static Future<void> dispose() async {
     await _sessionTracker.end();
     await upload();
   }
 
+  /// Test-only seam for injecting a custom [queue], [sessionTracker], or
+  /// [uploader]. Not for production use.
   static void configureForTesting({
     EventQueue? queue,
     SessionTracker? sessionTracker,
@@ -117,6 +151,7 @@ class FlutterVeil {
     _uploader = uploader ?? Uploader(queue: _queue);
   }
 
+  /// Test-only seam that resets all static state back to defaults.
   static void resetForTesting() {
     _apiKey = null;
     _endpoint = 'http://localhost:8080';
