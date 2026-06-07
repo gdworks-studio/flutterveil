@@ -1,0 +1,10 @@
+# CODEOWNERS — required human review on high-blast-radius paths.
+# Agent work is pushed under gdworks-studio; @geloumart2014-source is the human
+# reviewer (auditor seat) — enforces builder != auditor at the platform level.
+
+# The SDK source (error hooks, uploader, session tracker, symbol upload).
+/lib/                     @geloumart2014-source
+# Gate + CI config + dependency manifests.
+/.github/                 @geloumart2014-source
+/pubspec.yaml             @geloumart2014-source
+/pubspec.lock             @geloumart2014-source
