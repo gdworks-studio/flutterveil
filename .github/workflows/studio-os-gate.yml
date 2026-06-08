@@ -74,10 +74,10 @@ jobs:
           cache: true
       - run: flutter pub get
       - name: OSV-Scanner (resolved pubspec.lock)
-        run: |
-          curl -sSfL --retry 5 --retry-all-errors --retry-delay 3 --connect-timeout 15 "https://github.com/google/osv-scanner/releases/download/v2.3.8/osv-scanner_linux_amd64" -o osv-scanner
-          chmod +x osv-scanner
-          ./osv-scanner --lockfile=pubspec.lock
+        uses: google/osv-scanner-action/osv-scanner-action@v2.3.8
+        with:
+          scan-args: |-
+            --lockfile=pubspec.lock
 
   risk-router:
     runs-on: ubuntu-latest
