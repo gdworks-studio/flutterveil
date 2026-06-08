@@ -91,14 +91,39 @@ jobs:
           BASE_REF: ${{ github.base_ref }}
         run: python3 .github/scripts/risk_router.py "origin/${BASE_REF}"
 
+  # --- AR9: 2nd independent scanner on secrets + deps. (Dart in-gate SAST 2nd is
+  # deferred to Arc 4 / MobSF — no mature in-CI Dart security SAST; flutter analyze
+  # + semgrep cover lint/generic SAST.)
+  trufflehog:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with: { fetch-depth: 0 }
+      - name: TruffleHog (2nd secrets scanner — verified only)
+        run: docker run --rm -v "$PWD:/repo" trufflesecurity/trufflehog:latest filesystem /repo --only-verified --fail
+
+  trivy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      # flutterveil is a library -> pubspec.lock is gitignored; resolve it first so
+      # Trivy actually has a dependency file to scan (mirrors the OSV deps job).
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Trivy (2nd deps/SCA + secret scanner — fixed HIGH/CRITICAL)
+        run: docker run --rm -v "$PWD:/repo" aquasec/trivy:latest fs /repo --scanners vuln,secret --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --no-progress
+
   gate:
     runs-on: ubuntu-latest
-    needs: [hygiene, flutter, secrets-scan, sast, deps, risk-router]
+    needs: [hygiene, flutter, secrets-scan, sast, deps, risk-router, trufflehog, trivy]
     if: always()
     steps:
       - name: Verdict
         run: |
-          results="${{ needs.hygiene.result }} ${{ needs.flutter.result }} ${{ needs.secrets-scan.result }} ${{ needs.sast.result }} ${{ needs.deps.result }} ${{ needs.risk-router.result }}"
+          results="${{ needs.hygiene.result }} ${{ needs.flutter.result }} ${{ needs.secrets-scan.result }} ${{ needs.sast.result }} ${{ needs.deps.result }} ${{ needs.risk-router.result }} ${{ needs.trufflehog.result }} ${{ needs.trivy.result }}"
           echo "Job results: $results"
           for r in $results; do
             if [ "$r" != "success" ]; then
