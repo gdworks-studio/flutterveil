@@ -106,6 +106,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      # flutterveil is a library -> pubspec.lock is gitignored; resolve it first so
+      # Trivy actually has a dependency file to scan (mirrors the OSV deps job).
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
       - name: Trivy (2nd deps/SCA + secret scanner — fixed HIGH/CRITICAL)
         run: docker run --rm -v "$PWD:/repo" aquasec/trivy:latest fs /repo --scanners vuln,secret --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --no-progress
 
