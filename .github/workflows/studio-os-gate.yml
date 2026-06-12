@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   hygiene:
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_RUNNER) }}
     steps:
       - uses: actions/checkout@v6
         with: { fetch-depth: 0 }
@@ -31,7 +31,7 @@ jobs:
         run: git diff --check "origin/${BASE_REF}...HEAD"
 
   flutter:
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_RUNNER) }}
     steps:
       - uses: actions/checkout@v6
       - uses: subosito/flutter-action@v2
@@ -45,7 +45,7 @@ jobs:
         run: flutter test
 
   secrets-scan:
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_RUNNER) }}
     steps:
       - uses: actions/checkout@v6
         with: { fetch-depth: 0 }
@@ -53,7 +53,7 @@ jobs:
         run: docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:latest dir /repo --redact --no-banner
 
   sast:
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_RUNNER) }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
@@ -64,7 +64,7 @@ jobs:
           semgrep scan --error --config p/ci --config p/secrets
 
   deps:
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_RUNNER) }}
     steps:
       - uses: actions/checkout@v6
       # flutterveil is a library -> pubspec.lock is gitignored; resolve it first.
@@ -80,7 +80,7 @@ jobs:
             --lockfile=pubspec.lock
 
   risk-router:
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_RUNNER) }}
     steps:
       - uses: actions/checkout@v6
         with: { fetch-depth: 0 }
@@ -95,7 +95,7 @@ jobs:
   # deferred to Arc 4 / MobSF — no mature in-CI Dart security SAST; flutter analyze
   # + semgrep cover lint/generic SAST.)
   trufflehog:
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_RUNNER) }}
     steps:
       - uses: actions/checkout@v6
         with: { fetch-depth: 0 }
@@ -103,7 +103,7 @@ jobs:
         run: docker run --rm -v "$PWD:/repo" trufflesecurity/trufflehog:latest filesystem /repo --only-verified --fail
 
   trivy:
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_RUNNER) }}
     steps:
       - uses: actions/checkout@v6
       # flutterveil is a library -> pubspec.lock is gitignored; resolve it first so
@@ -117,7 +117,7 @@ jobs:
         run: docker run --rm -v "$PWD:/repo" aquasec/trivy:latest fs /repo --scanners vuln,secret --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --no-progress
 
   gate:
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_RUNNER) }}
     needs: [hygiene, flutter, secrets-scan, sast, deps, risk-router, trufflehog, trivy]
     if: always()
     steps:
