@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   osv-rescan:
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_RUNNER) }}
     steps:
       - uses: actions/checkout@v6
       - uses: subosito/flutter-action@v2
