@@ -9,3 +9,7 @@ pubspec.lock
 # macOS
 .DS_Store
 ._*
+
+# Flutter build output (regenerable; deleted 2026-08-29, ignored so it stops showing dirty)
+/build/
+.flutter-plugins-dependencies
