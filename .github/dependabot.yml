@@ -8,6 +8,11 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    # Do not adopt a release the day it ships. A compromised-package window is measured in
+    # hours-to-days, and grouped auto-merge means an update can reach main with little human
+    # attention, so the cooldown is what buys the ecosystem time to notice a bad release.
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 5
     labels: ["dependencies"]
     groups:
@@ -17,6 +22,8 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 7
     labels: ["dependencies"]
     groups:
       github-actions:
